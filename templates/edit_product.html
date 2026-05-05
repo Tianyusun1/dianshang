@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-success text-white py-3">
+                <h5 class="mb-0 fw-bold">✏️ 编辑农产品: {{ product.name }}</h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" enctype="multipart/form-data">
+
+                    <h5 class="mb-3 text-primary">基本信息</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">商品名称</label>
+                            <input type="text" name="name" class="form-control" required value="{{ product.name }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">商品分类</label>
+                            <select name="category" class="form-select" required>
+                                <option value="水果" {% if product.category == '水果' %}selected{% endif %}>🍎 水果鲜果</option>
+                                <option value="蔬菜" {% if product.category == '蔬菜' %}selected{% endif %}>🥦 新鲜蔬菜</option>
+                                <option value="肉禽蛋" {% if product.category == '肉禽蛋' %}selected{% endif %}>🥚 肉禽蛋品</option>
+                                <option value="粮油" {% if product.category == '粮油' %}selected{% endif %}>🍚 粮油米面</option>
+                                <option value="特产" {% if product.category == '特产' %}selected{% endif %}>🎁 地方特产</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">产地</label>
+                            <input type="text" name="origin" class="form-control" required value="{{ product.origin }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">运费模板</label>
+                            <select name="shipping_template_id" class="form-select" required>
+                                <option value="1" {% if product.shipping_template_id == 1 %}selected{% endif %}>默认运费 (¥10)</option>
+                                <option value="2" {% if product.shipping_template_id == 2 %}selected{% endif %}>冷链运费 (¥25)</option>
+                                <option value="3" {% if product.shipping_template_id == 3 %}selected{% endif %}>✨ 免运费 (¥0)</option>
+                                </select>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <h5 class="mb-3 text-success">规格与库存修改</h5>
+
+                    <div id="sku-container">
+                    {% for sku in skus %}
+                        <div class="row mb-3 border p-3 rounded bg-light sku-item" data-sku-id="{{ sku.sku_id }}">
+                            <h6 class="text-success mb-3 d-flex justify-content-between align-items-center">
+                                <span>规格 ID: {{ sku.sku_id }}</span>
+                                {% if loop.length > 1 or skus|length > 1 %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger remove-sku-btn">移除规格</button>
+                                {% endif %}
+                            </h6>
+                            <input type="hidden" name="sku_id[]" value="{{ sku.sku_id }}">
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">规格名称</label>
+                                <input type="text" name="spec_name[]" class="form-control" value="{{ sku.spec_name }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">规格价格 (元)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">￥</span>
+                                    <input type="number" step="0.01" name="price[]" class="form-control" value="{{ sku.price }}">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">规格库存数量</label>
+                                <input type="number" name="stock[]" class="form-control" value="{{ sku.stock }}">
+                            </div>
+                        </div>
+                    {% else %}
+                         <div class="alert alert-danger">警告：该商品没有关联的 SKU。请添加新的规格。</div>
+                    {% endfor %}
+                    </div>
+
+                    <button type="button" class="btn btn-sm btn-outline-success mb-4" id="add-sku-btn">
+                        + 添加新规格
+                    </button>
+
+                    <hr class="my-4">
+
+                    <div id="new-sku-template" style="display: none;">
+                        <div class="row mb-3 border p-3 rounded sku-item bg-warning bg-opacity-10">
+                            <h6 class="text-danger mb-3 d-flex justify-content-between align-items-center">
+                                <span>新规格 (保存后生成 ID)</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-sku-btn">移除规格</button>
+                            </h6>
+                            <input type="hidden" name="sku_id[]" value="">
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">规格名称</label>
+                                <input type="text" name="spec_name[]" class="form-control" placeholder="例如：大果 5斤装">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">规格价格 (元)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">￥</span>
+                                    <input type="number" step="0.01" name="price[]" class="form-control" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold">规格库存数量</label>
+                                <input type="number" name="stock[]" class="form-control" value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const skuContainer = document.getElementById('sku-container');
+                            const newSkuTemplate = document.getElementById('new-sku-template');
+                            const addSkuButton = document.getElementById('add-sku-btn');
+
+                            // 1. 动态添加 SKU 逻辑
+                            addSkuButton.addEventListener('click', function() {
+                                const clone = newSkuTemplate.firstElementChild.cloneNode(true);
+                                clone.style.display = 'flex'; // 显示新克隆的块
+                                skuContainer.appendChild(clone);
+                                bindRemoveListeners(); // 重新绑定移除事件
+                            });
+
+                            // 2. 移除 SKU 逻辑 (包括动态添加的和现有的)
+                            function bindRemoveListeners() {
+                                skuContainer.querySelectorAll('.remove-sku-btn').forEach(button => {
+                                    // 避免重复绑定
+                                    if (!button.dataset.listener) {
+                                        button.dataset.listener = 'true';
+                                        button.addEventListener('click', function() {
+                                            const skuItem = this.closest('.sku-item');
+                                            if (confirm('确定要删除此规格吗？（删除后保存才能生效）')) {
+                                                skuItem.remove();
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+
+                            bindRemoveListeners();
+                        });
+                    </script>
+
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">商品图片</label>
+                        {% if product.image_url %}
+                            <div class="mb-2">当前图片: <img src="{{ product.image_url }}" style="height: 50px;" class="img-thumbnail"></div>
+                        {% endif %}
+                        <div class="input-group">
+                            <input type="file" name="image_file" class="form-control" accept="image/*">
+                        </div>
+                        <div class="form-text text-muted">
+                            <small>选择新图片将覆盖旧图片。</small>
+                        </div>
+                        <input type="text" name="image_url" class="form-control mt-2" placeholder="或者输入网络图片 URL (可选)" value="{{ product.image_url or '' }}">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">商品详细描述</label>
+                        <textarea name="description" class="form-control" rows="5">{{ product.description }}</textarea>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('profile') }}" class="btn btn-outline-secondary px-4 me-md-2">取消</a>
+                        <button type="submit" class="btn btn-success px-5 fw-bold">保存修改</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

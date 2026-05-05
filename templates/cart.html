@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <h3 class="fw-bold mb-4 text-success">🛒 我的购物车 (选择商品结算)</h3>
+
+        {% if cart_items %}
+        <form method="POST" action="{{ url_for('checkout') }}" id="checkout-form">
+            <input type="hidden" name="selected_items" id="selected-items-input">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0" id="cart-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col" style="width: 5%;">选择</th> <th scope="col" style="width: 15%;">商品图片</th>
+                                <th scope="col" style="width: 30%;">商品名称/规格</th>
+                                <th scope="col" style="width: 15%;">单价</th>
+                                <th scope="col" style="width: 15%;">数量</th>
+                                <th scope="col" style="width: 10%;">小计</th>
+                                <th scope="col" style="width: 10%;">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in cart_items %}
+                            <tr data-item-id="{{ item.id }}" data-price="{{ item.sku.price }}"> <td>
+                                    <input type="checkbox" class="form-check-input item-checkbox" value="{{ item.id }}">
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('product_detail', product_id=item.sku.product.product_id) }}">
+                                        {% if item.sku.product.image_url %}
+                                            <img src="{{ item.sku.product.image_url }}" alt="{{ item.sku.product.name }}" class="img-fluid rounded" style="width: 70px; height: 70px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="bg-light text-center rounded" style="width: 70px; height: 70px; line-height: 70px;">🖼️</div>
+                                        {% endif %}
+                                    </a>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('product_detail', product_id=item.sku.product.product_id) }}" class="text-dark fw-bold text-decoration-none">
+                                        {{ item.sku.product.name }}
+                                    </a>
+                                    <div class="small text-success fw-bold">规格: {{ item.sku.spec_name }}</div>
+                                    <div class="small text-muted">农户: {{ item.sku.product.farmer.username }}</div>
+                                </td>
+                                <td>￥<span class="item-price">{{ item.sku.price }}</span></td>
+                                <td>
+                                    <form action="{{ url_for('update_cart') }}" method="POST" class="d-flex align-items-center">
+                                        <input type="hidden" name="item_id" value="{{ item.id }}">
+                                        <input type="number"
+                                               name="quantity"
+                                               value="{{ item.quantity }}"
+                                               min="1"
+                                               max="{{ item.sku.stock }}" class="form-control form-control-sm me-2 item-quantity"
+                                               style="width: 60px;"
+                                               onchange="this.form.submit()">
+                                    </form>
+                                </td>
+                                <td><span class="text-danger fw-bold item-subtotal">￥{{ (item.sku.price * item.quantity)|round(2) }}</span></td>
+                                <td>
+                                    <a href="{{ url_for('remove_from_cart', item_id=item.id) }}" class="btn btn-sm btn-outline-danger">移除</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="row justify-content-end">
+                <div class="col-md-5">
+                    <div class="card p-3 shadow-lg bg-white">
+                        <h5 class="fw-bold border-bottom pb-2 mb-3">订单汇总</h5>
+                        <div class="d-flex justify-content-between mb-3">
+                            <span>选中商品总计:</span>
+                            <span class="fs-4 text-danger fw-bold" id="selected-total">￥0.00</span>
+                        </div>
+                        <button type="submit" class="btn btn-success btn-lg fw-bold" id="checkout-button" disabled>
+                            去结算 (<span id="selected-count">0</span> 种商品)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const checkoutForm = document.getElementById('checkout-form');
+                const selectedItemsInput = document.getElementById('selected-items-input');
+                const selectedTotalDisplay = document.getElementById('selected-total');
+                const selectedCountDisplay = document.getElementById('selected-count');
+                const checkoutButton = document.getElementById('checkout-button');
+                const itemCheckboxes = document.querySelectorAll('.item-checkbox');
+                const cartTable = document.getElementById('cart-table');
+
+                function updateCheckoutSummary() {
+                    let total = 0;
+                    let count = 0;
+                    const selectedIds = [];
+
+                    cartTable.querySelectorAll('tbody tr').forEach(row => {
+                        const checkbox = row.querySelector('.item-checkbox');
+                        if (checkbox && checkbox.checked) {
+                            const itemId = row.getAttribute('data-item-id');
+                            const price = parseFloat(row.getAttribute('data-price'));
+                            const quantityInput = row.querySelector('.item-quantity');
+                            const quantity = parseInt(quantityInput ? quantityInput.value : 1);
+
+                            if (!isNaN(price) && !isNaN(quantity)) {
+                                total += price * quantity;
+                                count++;
+                                selectedIds.push(itemId);
+                            }
+                        }
+                    });
+
+                    // 更新隐藏输入字段，用逗号分隔 ID
+                    selectedItemsInput.value = selectedIds.join(',');
+
+                    // 格式化总价并更新显示
+                    selectedTotalDisplay.textContent = '￥' + total.toFixed(2);
+                    selectedCountDisplay.textContent = count;
+
+                    // 启用/禁用结算按钮
+                    checkoutButton.disabled = count === 0;
+                }
+
+                // 为所有复选框添加事件监听器
+                itemCheckboxes.forEach(checkbox => {
+                    checkbox.addEventListener('change', updateCheckoutSummary);
+                });
+
+                // 为数量输入框添加监听，确保每次数量更改后总价更新
+                cartTable.querySelectorAll('.item-quantity').forEach(input => {
+                    // 由于数量更改后页面会重新加载 (onchange="this.form.submit()")，这里只需确保初始状态正确。
+                    // 实际的 onchange 逻辑在表单提交后在后端处理，所以这里只监听前端的 change 事件（以防万一）。
+                    input.addEventListener('change', updateCheckoutSummary);
+                });
+
+                // 确保表单提交时，用户确实选择了商品
+                checkoutForm.addEventListener('submit', function(event) {
+                    if (selectedItemsInput.value.length === 0) {
+                        alert('请至少选择一件商品进行结算！');
+                        event.preventDefault();
+                    }
+                });
+
+                // 页面加载时执行一次总结，以反映当前选中的状态（通常页面加载时都是未选中）
+                updateCheckoutSummary();
+            });
+        </script>
+
+
+        {% else %}
+        <div class="text-center py-5 border rounded bg-white shadow-sm">
+            <div class="display-1 text-muted">🧺</div>
+            <p class="lead">您的购物车空空如也。</p>
+            <a href="{{ url_for('index') }}" class="btn btn-success btn-lg">去农产市集逛逛</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{# 🔥 新增：猜你喜欢推荐模块 #}
+{% if recommendations %}
+<div class="row mt-5 justify-content-center">
+    <div class="col-lg-10">
+        <h4 class="mb-3">✨ 猜你喜欢 <small class="text-muted fs-6">(为您推荐)</small></h4>
+        <hr>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4">
+            {% for item in recommendations %}
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0">
+                    <a href="{{ url_for('product_detail', product_id=item.product.product_id) }}" class="text-decoration-none text-dark">
+                        <div class="position-relative" style="height: 150px; overflow: hidden;">
+                            {% if item.product.image_url %}
+                                <img src="{{ item.product.image_url }}" class="card-img-top h-100 w-100" style="object-fit: cover;" alt="{{ item.product.name }}">
+                            {% else %}
+                                <div class="bg-light h-100 w-100 d-flex align-items-center justify-content-center text-secondary">
+                                    <span>暂无图片</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-body p-3">
+                            <h6 class="card-title text-truncate fw-bold mb-1">{{ item.product.name }}</h6>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="text-danger fw-bold">
+                                    {% if item.min_price > 0 %}
+                                        ￥{{ item.min_price | round(2) }}
+                                    {% else %}
+                                        暂无价格
+                                    {% endif %}
+                                </span>
+                                <span class="badge bg-light text-dark border">{{ item.product.category }}</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+{# End 新增：猜你喜欢推荐模块 #}
+
+{% endblock %}

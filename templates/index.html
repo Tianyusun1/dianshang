@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="p-5 mb-4 bg-success rounded-3 text-white shadow-sm" style="background: linear-gradient(135deg, #198754 0%, #20c997 100%);">
+    <div class="container-fluid py-2 text-center">
+        <h1 class="display-5 fw-bold mb-3">🌾 寻找源头好农货</h1>
+        <p class="fs-5 mb-4">连接田间地头与城市餐桌，每一份购买都是对乡村振兴的支持。</p>
+
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <form action="{{ url_for('index') }}" method="get" class="d-flex shadow-sm rounded-pill bg-white p-1">
+                    <input class="form-control border-0 rounded-pill ps-4" type="search" name="q" value="{{ search_query or '' }}" placeholder="🔍 搜索商品名称、产地或分类..." aria-label="Search">
+                    <button class="btn btn-warning rounded-pill px-4 fw-bold" type="submit">搜索</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages() %}
+    {% if messages %}
+        <div class="row mb-4">
+            <div class="col-12">
+                {% for message in messages %}
+                <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+{% endwith %}
+
+<div class="row align-items-center mb-4">
+    <div class="col">
+        {% if search_query %}
+            <h4 class="mb-0">🔍 "{{ search_query }}" 的搜索结果 <small class="text-muted fs-6">({{ products|length }}个)</small></h4>
+        {% else %}
+            <h3 class="mb-0 fw-bold text-dark border-start border-4 border-success ps-3">🔥 热门推荐</h3>
+        {% endif %}
+    </div>
+    {% if search_query %}
+    <div class="col-auto">
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">清除搜索</a>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+    {% for item in products %}
+    {% set product = item.product %}
+    {% set min_price = item.min_price %}
+    <div class="col">
+        <div class="card h-100 shadow-sm border-0 product-card">
+            <div class="position-relative overflow-hidden" style="height: 200px;">
+                {% if product.image_url %}
+                    <img src="{{ product.image_url }}" class="card-img-top h-100 w-100" style="object-fit: cover;" alt="{{ product.name }}"
+                         onerror="this.src='https://via.placeholder.com/300x200?text=暂无图片'">
+                {% else %}
+                    <div class="bg-light h-100 w-100 d-flex align-items-center justify-content-center text-secondary">
+                        <div class="text-center">
+                            <div class="fs-1">🍅</div>
+                            <small>暂无图片</small>
+                        </div>
+                    </div>
+                {% endif %}
+                <span class="position-absolute top-0 end-0 badge bg-warning text-dark m-2 shadow-sm">
+                    {{ product.category }}
+                </span>
+            </div>
+
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title text-truncate fw-bold" title="{{ product.name }}">{{ product.name }}</h5>
+                <p class="card-text small text-muted mb-2">
+                    <i class="bi bi-geo-alt-fill text-success"></i> 产地：{{ product.origin }}
+                </p>
+
+                <div class="mt-auto d-flex justify-content-between align-items-end">
+                    <div>
+                        <small class="text-muted">起售价</small>
+                        <div class="text-danger fw-bold fs-5">
+                            {% if min_price > 0 %}
+                                ￥{{ min_price | round(2) }}
+                            {% else %}
+                                暂无价格
+                            {% endif %}
+                        </div>
+                    </div>
+                    <a href="{{ url_for('product_detail', product_id=product.product_id) }}" class="btn btn-outline-success btn-sm stretched-link">
+                        查看详情
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12 py-5 text-center">
+        <div class="mb-3 display-1 text-muted">🍃</div>
+        <h4 class="text-muted">暂无相关农产品</h4>
+        <p class="text-secondary">
+            {% if search_query %}
+                换个关键词试试看？
+            {% else %}
+                系统刚刚上线，农户正在努力上架中...
+            {% endif %}
+        </p>
+        {% if not search_query %}
+            <a href="{{ url_for('publish_product') }}" class="btn btn-success mt-3">我是农户，我要发布</a>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+    .product-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+</style>
+{% endblock %}

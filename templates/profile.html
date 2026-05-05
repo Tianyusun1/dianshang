@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card p-3 mb-3 shadow-sm">
+            <div class="text-center">
+                <div class="mb-3 display-4">
+                    {% if user.role == 2 %} 🛡️ {% else %} 👤 {% endif %}
+                </div>
+                <h4 class="fw-bold">{{ user.username }}</h4>
+                <p class="text-muted">
+                    {% if user.role == 2 %}
+                        <span class="badge bg-dark">系统管理员</span>
+                    {% elif user.role == 1 and user.status == 1 %}
+                        <span class="badge bg-success">👨‍🌾 认证农户</span>
+                    {% elif user.role == 1 and user.status != 1 %}
+                        <span class="badge bg-warning text-dark">👨‍🌾 农户(审核中)</span>
+                    {% else %}
+                        <span class="badge bg-secondary">🛒 普通消费者</span>
+                    {% endif %}
+                </p>
+            </div>
+
+            <hr>
+            <div class="text-start small text-secondary">
+                <p class="mb-2"><strong>📞 电话:</strong> {{ user.phone or '未填写' }}</p>
+                <p class="mb-2"><strong>📧 邮箱:</strong> {{ user.email or '未填写' }}</p>
+
+                {% if user.role == 1 and user.farmer_info %}
+                <div class="mt-2 pt-2 border-top bg-light p-2 rounded">
+                    <p class="mb-1 text-dark"><strong>🏠 {{ user.farmer_info.shop_name or '未命名店铺' }}</strong></p>
+                    <p class="mb-1"><strong>👤 联系人:</strong> {{ user.farmer_info.contact_person or '未填写' }}</p>
+                    <p class="mb-0 text-truncate" title="{{ user.farmer_info.farm_address }}">
+                        <strong>📍 地址:</strong> {{ user.farmer_info.farm_address or '未填写' }}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+            <hr>
+
+            <div class="d-grid gap-2">
+                <a href="{{ url_for('edit_profile') }}" class="btn btn-outline-secondary btn-sm">✏️ 编辑资料</a>
+                {% if user.role == 2 %}
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-danger btn-sm">🛡️ 进入管理员后台</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <ul class="nav nav-tabs card-header-tabs">
+                    <li class="nav-item">
+                        <a class="nav-link active border-top-0 border-start-0 border-end-0 fw-bold" href="#">我的中心</a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+
+                {% if user.role == 1 and user.status == 1 %}
+                    <h5 class="card-title text-success mb-4">🌾 我的农场管理</h5>
+                    <div class="row text-center mb-4">
+                        <div class="col-md-4">
+                            <div class="border rounded p-4 bg-light h-100">
+                                <h3 class="fw-bold text-success">{{ user.products|length }}</h3>
+                                <p class="text-muted">在售/已下架商品总数</p>
+
+                                <div class="d-grid gap-2">
+                                    <a href="{{ url_for('publish_product') }}" class="btn btn-success mt-2">🌱 发布新商品</a>
+                                    <a href="{{ url_for('farmer_dashboard') }}" class="btn btn-outline-primary">📊 查看数据看板</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-4 bg-light h-100">
+                                <h3 class="fw-bold">{{ pending_orders_count or 0 }}</h3> <p class="text-muted">待发货订单</p>
+                                <a href="{{ url_for('farmer_orders') }}" class="btn btn-outline-primary w-100 mt-2">查看订单</a>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-4 bg-light h-100">
+                                <h3 class="fw-bold text-warning">￥{{ total_revenue | round(2) }}</h3>
+                                <p class="text-muted">累计收益</p>
+                                <a href="{{ url_for('farmer_dashboard') }}" class="btn btn-outline-secondary w-100 mt-2">财务统计</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="card-title text-success mb-3">📦 我的农产品列表</h5>
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>商品名称</th>
+                                <th>价格 (起)</th>
+                                <th>当前库存</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in user.products %}
+                            <tr>
+                                <td><a href="{{ url_for('product_detail', product_id=product.product_id) }}" class="text-dark">{{ product.name }}</a></td>
+
+                                <td>
+                                    {% set min_price = 0 %}
+                                    {% if product.skus %}
+                                        {% set min_price = product.skus | map(attribute='price') | min %}
+                                    {% endif %}
+
+                                    {% if min_price > 0 %}
+                                        ￥{{ min_price | round(2) }}
+                                    {% else %}
+                                        <span class="text-danger">无规格价</span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% set total_stock = product.skus | map(attribute='stock') | sum %}
+                                    {{ total_stock or 0 }}
+                                </td>
+
+                                <td>
+                                    {% if product.is_on_sale %}
+                                        <span class="badge bg-success">✅ 上架中</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">❌ 已下架</span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <a href="{{ url_for('toggle_product_status', product_id=product.product_id) }}"
+                                       class="btn btn-sm {% if product.is_on_sale %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                                        {{ '下架' if product.is_on_sale else '重新上架' }}
+                                    </a>
+                                    <a href="{{ url_for('edit_product', product_id=product.product_id) }}"
+                                       class="btn btn-sm btn-outline-primary ms-1">
+                                        编辑
+                                    </a>
+                                    <form method="POST" action="{{ url_for('delete_product', product_id=product.product_id) }}" class="d-inline">
+                                        <button type="submit"
+                                                class="btn btn-sm btn-outline-dark ms-1"
+                                                onclick="return confirm('警告：此操作不可逆，将永久删除商品及其所有数据（包括规格、社区帖子、收藏、日志等）。确定要删除吗？')">
+                                            🗑️ 删除
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+
+                {% else %}
+                    {% if user.role == 1 and user.status != 1 %}
+                        <div class="alert alert-warning d-flex align-items-center" role="alert">
+                            <div class="me-2">⏳</div>
+                            <div>
+                                <strong>审核状态提醒：</strong> 您的农户入驻申请正在审核中。在通过前，暂时只能使用买家功能。
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    {% if user.role == 2 %}
+                        <div class="alert alert-info" role="alert">
+                            <strong>👨‍💻 管理员提示：</strong> 请点击左侧按钮进入后台处理审核申请。
+                        </div>
+                    {% endif %}
+
+                    <h5 class="card-title mb-3">🛍️ 我的购物助手</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="list-group">
+                                <a href="{{ url_for('orders') }}" class="list-group-item list-group-item-action">📦 我的订单</a>
+                                <a href="{{ url_for('view_favorites') }}" class="list-group-item list-group-item-action">❤️ 我的收藏</a>
+                                {# 移除的链接：<a href="#" class="list-group-item list-group-item-action">📍 收货地址管理</a> #}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+
+                {# 🔥 新增：猜你喜欢推荐模块 (仅在消费者模式下显示) #}
+                {% if user.role != 1 and user.role != 2 and recommendations %}
+                <div class="mt-5">
+                    <h5 class="mb-3">✨ 猜你喜欢 <small class="text-muted fs-6">(为您推荐)</small></h5>
+                    <hr>
+                    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4">
+                        {% for item in recommendations %}
+                        <div class="col">
+                            <div class="card h-100 shadow-sm border-0">
+                                <a href="{{ url_for('product_detail', product_id=item.product.product_id) }}" class="text-decoration-none text-dark">
+                                    <div class="position-relative" style="height: 150px; overflow: hidden;">
+                                        {% if item.product.image_url %}
+                                            <img src="{{ item.product.image_url }}" class="card-img-top h-100 w-100" style="object-fit: cover;" alt="{{ item.product.name }}">
+                                        {% else %}
+                                            <div class="bg-light h-100 w-100 d-flex align-items-center justify-content-center text-secondary">
+                                                <span>暂无图片</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title text-truncate fw-bold mb-1">{{ item.product.name }}</h6>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="text-danger fw-bold">
+                                                {% if item.min_price > 0 %}
+                                                    ￥{{ item.min_price | round(2) }}
+                                                {% else %}
+                                                    暂无价格
+                                                {% endif %}
+                                            </span>
+                                            <span class="badge bg-light text-dark border">{{ item.product.category }}</span>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {# End 新增：猜你喜欢推荐模块 #}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

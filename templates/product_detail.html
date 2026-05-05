@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-5 text-center">
+                {% if product.image_url %}
+                    <img src="{{ product.image_url }}" class="img-fluid rounded" alt="{{ product.name }}" style="max-height: 400px; object-fit: cover;">
+                {% else %}
+                    <div class="bg-light rounded d-flex align-items-center justify-content-center" style="height: 300px;">
+                        <span class="text-muted display-4">🖼️</span>
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-7">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h2 class="fw-bold">{{ product.name }}</h2>
+                    <span class="badge bg-success">{{ product.category }}</span>
+                </div>
+
+                <p class="text-muted mb-2">
+                    📍 产地：{{ product.origin }}
+                    </p>
+
+                {% if total_reviews_count > 0 %}
+                    <div class="mb-2">
+                        <span class="text-warning fw-bold fs-4 me-2">
+                            {# 循环输出平均星级，取整数部分 #}
+                            {% for _ in range(average_rating | int) %}⭐{% endfor %}
+                        </span>
+                        <span class="fs-5 fw-bold text-dark">{{ average_rating | round(1) }} 分</span>
+                        <span class="text-muted"> ({{ total_reviews_count }} 条评价)</span>
+                    </div>
+                {% else %}
+                    <p class="text-muted small">暂无客户评价</p>
+                {% endif %}
+                {% if not product.is_on_sale %}
+                    <div class="alert alert-danger p-2 small">该商品已下架或正在维护中，暂时无法购买。</div>
+                {% endif %}
+
+                <div class="p-3 bg-light rounded mb-4">
+                    <h3 class="text-danger m-0 fw-bold" id="sku-price-display">
+                        {% if product_skus %}${{ product_skus[0].price }}{% else %}暂无价格{% endif %}
+                        <small class="fs-6 text-muted fw-normal">/ {{ product_skus[0].spec_name if product_skus else '份' }}</small>
+                    </h3>
+                    <p class="text-info fw-bold mb-0">📦 当前库存: <span id="sku-stock-display">
+                        {% if product_skus %}{{ product_skus[0].stock }}{% else %}0{% endif %}
+                    </span></p>
+                </div>
+
+                <h5 class="border-bottom pb-2">商品详情</h5>
+                <p class="text-secondary" style="white-space: pre-line;">
+                    {{ product.description or "农户很懒，还没有填写详细描述。" }}
+                </p>
+
+                <hr>
+
+                {% if product.is_on_sale %}
+                <form action="#" id="add-to-cart-form" method="POST" class="mb-4">
+
+                    <div class="mb-3">
+                        <label for="sku-select" class="form-label fw-bold">选择规格：</label>
+                        <select id="sku-select" class="form-select" name="sku_id" required>
+                            {% for sku in product_skus %}
+                                <option value="{{ sku.sku_id }}" data-price="{{ sku.price }}" data-stock="{{ sku.stock }}" data-spec="{{ sku.spec_name }}" {% if loop.first %}selected{% endif %}>
+                                    {{ sku.spec_name }} (￥{{ sku.price }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="d-flex align-items-center mb-3">
+                        <label for="quantity-input" class="form-label me-3 fw-bold">购买数量：</label>
+                        <input type="number"
+                               id="quantity-input"
+                               name="quantity"
+                               class="form-control me-3"
+                               value="1"
+                               min="1"
+                               max="{{ product_skus[0].stock if product_skus else 0 }}"
+                               style="width: 100px;"
+                               required>
+                        <span class="text-muted small">最高可购 <span id="max-stock-text">{{ product_skus[0].stock if product_skus else 0 }}</span> 份</span>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-block">
+                        <button type="submit"
+                                class="btn btn-success btn-lg me-md-2"
+                                id="add-to-cart-btn"
+                                {% if not product_skus or product_skus[0].stock <= 0 %}disabled{% endif %}>
+                            🛒 加入购物车
+                        </button>
+
+                        <button type="button"
+                                class="btn btn-lg {% if has_favorited %}btn-warning text-white{% else %}btn-outline-warning{% endif %}"
+                                id="btn-collect"
+                                data-product-id="{{ product.product_id }}">
+                            {% if has_favorited %}
+                                🌟 已收藏
+                            {% else %}
+                                ⭐ 收藏
+                            {% endif %}
+                        </button>
+                    </div>
+                </form>
+                {% else %}
+                    <div class="alert alert-info mt-3">该商品目前没有在售规格或已下架。</div>
+                {% endif %}
+
+                <hr class="mt-4">
+
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <div class="bg-warning rounded-circle d-flex align-items-center justify-content-center text-white" style="width: 50px; height: 50px; font-size: 20px;">
+                            👨‍🌾
+                        </div>
+                    </div>
+                    <div>
+                        <p class="mb-0 fw-bold">发布农户：{{ product.farmer.username }}</p>
+                        <small class="text-muted">实名认证 | 产地直供</small>
+
+                        {% if current_user and current_user.user_id != product.farmer.user_id %}
+                        <form action="{{ url_for('start_chat', target_user_id=product.farmer_id) }}" method="POST" class="mt-2">
+                             <button type="submit" class="btn btn-sm btn-outline-info">
+                                 ✉️ 联系TA
+                             </button>
+                        </form>
+                        {% endif %}
+                        </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <h4 class="mb-3">⭐ 客户评价 ({{ total_reviews_count }} 条)</h4>
+        <hr>
+
+        {% if reviews %}
+        <div class="list-group">
+            {% for review in reviews %}
+            <div class="list-group-item list-group-item-action flex-column align-items-start bg-light mb-2 rounded">
+                <div class="d-flex w-100 justify-content-between">
+                    <h6 class="mb-1 fw-bold text-dark">
+                        👤 {{ review.user.username }}
+                        <small class="text-warning fw-bold ms-2">
+                            {% for _ in range(review.rating) %}⭐{% endfor %}
+                        </small>
+                    </h6>
+                    <small class="text-muted">{{ review.review_date.strftime('%Y-%m-%d') }}</small>
+                </div>
+                <p class="mb-1 text-secondary" style="white-space: pre-line;">{{ review.content or '（该用户未填写评价内容）' }}</p>
+                <small class="text-muted">订单号: #{{ review.order_id }}</small>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info text-center">
+            还没有任何客户评价哦，快去购买并提交您的第一条评价吧！
+        </div>
+        {% endif %}
+    </div>
+</div>
+<div class="row mt-5">
+    {% if recommendations %}
+    <div class="col-12">
+        <h4 class="mb-3">✨ 猜你喜欢 <small class="text-muted fs-6">(为您推荐)</small></h4>
+        <hr>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-4 g-4">
+            {% for item in recommendations %}
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0">
+                    <a href="{{ url_for('product_detail', product_id=item.product_id) }}" class="text-decoration-none text-dark">
+                        <div class="position-relative" style="height: 150px; overflow: hidden;">
+                            {% if item.image_url %}
+                                <img src="{{ item.image_url }}" class="card-img-top h-100 w-100" style="object-fit: cover;" alt="{{ item.name }}">
+                            {% else %}
+                                <div class="bg-light h-100 w-100 d-flex align-items-center justify-content-center text-secondary">
+                                    <span>暂无图片</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="card-body p-3">
+                            <h6 class="card-title text-truncate fw-bold mb-1">{{ item.name }}</h6>
+                            <div class="d-flex justify-content-between align-items-center">
+                                {% set min_rec_price = 0 %}
+                                {% if item.skus %}
+                                    {% set min_rec_price = item.skus | map(attribute='price') | min %}
+                                {% endif %}
+                                <span class="text-danger fw-bold">
+                                    {% if min_rec_price > 0 %}
+                                        ￥{{ min_rec_price | round(2) }}
+                                    {% else %}
+                                        暂无价格
+                                    {% endif %}
+                                </span>
+                                <span class="badge bg-light text-dark border">{{ item.category }}</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <p class="text-muted text-center py-4">
+        暂无相关推荐数据，快去多逛逛吧~
+    </p>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const skuSelect = document.getElementById('sku-select');
+        const priceDisplay = document.getElementById('sku-price-display');
+        const stockDisplay = document.getElementById('sku-stock-display');
+        const quantityInput = document.getElementById('quantity-input');
+        const maxStockText = document.getElementById('max-stock-text');
+        const addToCartForm = document.getElementById('add-to-cart-form');
+        const addToCartBtn = document.getElementById('add-to-cart-btn');
+
+        // 🔥 [修正] 定义安全的 URL 模板：使用一个大整数作为占位符，避免 Flask 报错。
+        const CART_ACTION_URL_TEMPLATE = "{{ url_for('add_to_cart', sku_id=999999999) }}";
+
+        if (!skuSelect) return;
+
+        function updateSKUDisplay() {
+            const selectedOption = skuSelect.options[skuSelect.selectedIndex];
+            const price = selectedOption.getAttribute('data-price');
+            const stock = parseInt(selectedOption.getAttribute('data-stock'));
+            const spec = selectedOption.getAttribute('data-spec');
+            const skuId = selectedOption.value; // 获取当前选择的 SKU ID
+
+            // 1. 更新价格和规格显示
+            priceDisplay.innerHTML = `￥${price} <small class="fs-6 text-muted fw-normal">/ ${spec}</small>`;
+            stockDisplay.textContent = stock;
+
+            // 2. 更新购物车表单的 Action URL (重要!)
+            // 将模板中的大整数替换为当前的 SKU ID
+            addToCartForm.action = CART_ACTION_URL_TEMPLATE.replace('999999999', skuId);
+
+            // 3. 更新购买数量限制
+            quantityInput.setAttribute('max', stock);
+            quantityInput.value = Math.min(quantityInput.value, stock > 0 ? stock : 1);
+            maxStockText.textContent = stock;
+
+            // 4. 禁用/启用按钮
+            if (stock <= 0) {
+                addToCartBtn.setAttribute('disabled', 'disabled');
+                addToCartBtn.textContent = '已售罄';
+                quantityInput.value = 0;
+            } else {
+                addToCartBtn.removeAttribute('disabled');
+                addToCartBtn.textContent = '🛒 加入购物车';
+            }
+        }
+
+        // 监听 SKU 选择变化
+        skuSelect.addEventListener('change', updateSKUDisplay);
+
+        // 收藏按钮的 JS 逻辑（保持不变）
+        document.getElementById('btn-collect').addEventListener('click', function() {
+            const btn = this;
+            const isUserLoggedIn = {{ 'true' if current_user and current_user.user_id else 'false' }};
+
+            if (!isUserLoggedIn) {
+                alert('请先登录才能进行收藏操作！');
+                window.location.href = "{{ url_for('login') }}";
+                return;
+            }
+
+            const productId = btn.getAttribute('data-product-id');
+
+            fetch('/api/collect_behavior', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    product_id: productId,
+                    behavior_type: 2
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (data.action === 'added') {
+                        btn.classList.remove('btn-outline-warning');
+                        btn.classList.add('btn-warning', 'text-white');
+                        btn.innerHTML = '🌟 已收藏';
+                    } else {
+                        btn.classList.remove('btn-warning', 'text-white');
+                        btn.classList.add('btn-outline-warning');
+                        btn.innerHTML = '⭐ 收藏';
+                    }
+                } else {
+                    alert('操作失败: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('网络请求失败。');
+            });
+        });
+
+        // 页面加载时执行一次初始化（如果有 SKU）
+        if (skuSelect.options.length > 0) {
+            updateSKUDisplay();
+        }
+    });
+</script>
+{% endblock %}

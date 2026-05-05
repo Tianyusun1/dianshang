@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold text-success">📊 智慧助农·数据看板</h2>
+                <p class="text-muted">实时监控您的店铺经营状况与推荐效果</p>
+            </div>
+            <a href="{{ url_for('profile') }}" class="btn btn-outline-secondary">返回个人中心</a>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-5">
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-5 border-primary h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">总浏览量 (PV)</h6>
+                <h2 class="fw-bold text-primary">{{ total_views }}</h2>
+                <small class="text-success"><i class="bi bi-graph-up"></i> 潜在客流</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-5 border-success h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">累计销售额</h6>
+                <h2 class="fw-bold text-success">￥{{ total_revenue }}</h2>
+                <small class="text-muted">真金白银的收益</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-5 border-warning h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">成交转化率</h6>
+                <h2 class="fw-bold text-warning">{{ conversion_rate }}%</h2>
+                <div class="progress mt-2" style="height: 5px;">
+                    <div class="progress-bar bg-warning" role="progressbar" style="width: {{ conversion_rate }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card shadow-sm border-start border-5 border-info h-100">
+            <div class="card-body">
+                <h6 class="text-muted text-uppercase small">高意向互动</h6>
+                <h2 class="fw-bold text-info">{{ high_intent_count }}</h2>
+                <small class="text-muted">收藏 & 加购总数</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white fw-bold">🏆 店铺热销 Top 5</div>
+            <div class="card-body">
+                {% if top_products %}
+                <ul class="list-group list-group-flush">
+                    {% for name, count in top_products %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span>
+                            {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}.{% endif %}
+                            {{ name }}
+                        </span>
+                        <span class="badge bg-success rounded-pill">{{ count }} 件</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-center py-4 text-muted">暂无销售数据，加油推广吧！</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100 bg-light border-0">
+            <div class="card-body">
+                <h5 class="card-title fw-bold text-dark">💡 助农小贴士</h5>
+                <hr>
+                <ul class="list-unstyled">
+                    <li class="mb-3">
+                        <strong>🚀 提升曝光：</strong> 
+                        您的商品已被推荐系统收录。建议上传精美的商品图片，详细描述产地故事（如“高山种植”、“无公害”），这将提高算法的匹配权重。
+                    </li>
+                    <li class="mb-3">
+                        <strong>📈 转化分析：</strong>
+                        当前转化率为 <span class="fw-bold">{{ conversion_rate }}%</span>。如果浏览量高但销量低，请尝试适当降低价格或优化商品描述。
+                    </li>
+                    <li>
+                        <strong>❤️ 关注收藏：</strong>
+                        有 {{ high_intent_count }} 位用户对您的商品感兴趣但未下单。您可以考虑发起限时促销活动来激活这些潜在客户。
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

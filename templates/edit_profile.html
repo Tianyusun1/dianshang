@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-white"><h4 class="mb-0">✏️ 编辑资料</h4></div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label>邮箱</label>
+                        <input type="email" name="email" class="form-control" value="{{ user.email or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label>电话</label>
+                        <input type="text" name="phone" class="form-control" value="{{ user.phone or '' }}">
+                    </div>
+                    {% if user.role == 1 %}
+                    <hr>
+                    <h5 class="text-success">店铺信息</h5>
+                    <div class="mb-3">
+                        <label>店铺名称</label>
+                        <input type="text" name="shop_name" class="form-control" value="{{ user.farmer_info.shop_name if user.farmer_info else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label>发货地址</label>
+                        <input type="text" name="farm_address" class="form-control" value="{{ user.farmer_info.farm_address if user.farmer_info else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label>联系人</label>
+                        <input type="text" name="contact_person" class="form-control" value="{{ user.farmer_info.contact_person if user.farmer_info else '' }}">
+                    </div>
+                    {% endif %}
+                    <button type="submit" class="btn btn-success w-100">保存</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

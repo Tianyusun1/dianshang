@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3>🛡️ 管理员审核后台</h3>
+            <a href="{{ url_for('train_model') }}" class="btn btn-warning btn-sm fw-bold"
+               onclick="return confirm('警告：训练模型需要较长时间，并会清空旧的相似度数据。确定要开始训练吗？')">
+                🚀 手动训练推荐模型
+            </a>
+        </div>
+
+        <hr>
+        <h5 class="mb-3">待审核农户列表</h5>
+        
+        {% if farmers %}
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>用户名</th>
+                    <th>注册角色</th>
+                    <th>当前状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for farmer in farmers %}
+                <tr>
+                    <td>{{ farmer.user_id }}</td>
+                    <td>{{ farmer.username }}</td>
+                    <td>农户</td>
+                    <td><span class="badge bg-warning text-dark">待审核</span></td>
+                    <td>
+                        <a href="{{ url_for('approve_farmer', user_id=farmer.user_id) }}" class="btn btn-success btn-sm">✅ 通过审核</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+            <div class="alert alert-success">🎉 目前没有待审核的农户申请。</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h3 class="fw-bold mb-3 text-success">
+            与 <span class="text-primary">{{ other_user.username }}</span> 对话中
+            <a href="{{ url_for('chat_list') }}" class="btn btn-sm btn-outline-secondary ms-3">返回会话列表</a>
+        </h3>
+
+        <div id="message_window" class="p-3 mb-3 border rounded shadow-sm"
+             style="height: 500px; overflow-y: auto; background-color: #ffffff;">
+            {% for message in messages %}
+                {% if message.sender_id == current_user.user_id %}
+                <div class="d-flex justify-content-end mb-3">
+                    <div class="p-2 rounded bg-success text-white chat-bubble" style="max-width: 70%;">
+                        {{ message.content | safe }}
+                        <small class="d-block text-end opacity-75 mt-1" style="font-size: 0.75rem;">{{ message.timestamp.strftime('%H:%M') }}</small>
+                    </div>
+                </div>
+                {% else %}
+                <div class="d-flex justify-content-start mb-3">
+                    <div class="p-2 rounded bg-light border chat-bubble" style="max-width: 70%;">
+                        <small class="d-block mb-1 text-muted fw-bold">{{ message.sender.username }}</small>
+                        {{ message.content | safe }}
+                        <small class="d-block text-end opacity-75 mt-1" style="font-size: 0.75rem;">{{ message.timestamp.strftime('%H:%M') }}</small>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0 text-muted">发送新消息:</h6>
+            {% if historical_orders %}
+            <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#orderHistoryModal">
+                📋 历史订单 ({% if historical_orders %}{{ historical_orders | length }}{% else %}0{% endif %}个)
+            </button>
+            {% endif %}
+        </div>
+
+        <form id="send_message_form" class="d-flex shadow-sm">
+            <input type="text" id="message_input" class="form-control me-2" placeholder="输入消息..." required>
+            <button type="submit" class="btn btn-primary">发送</button>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="orderHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">选择历史订单进行咨询</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% if historical_orders %}
+                <ul class="list-group">
+                    {% for order in historical_orders %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="mb-1 fw-bold">订单号: #{{ order.order_id }}</p>
+                            <small class="text-muted d-block">
+                                总额: ￥{{ order.total_amount | round(2) }} |
+                                下单时间: {{ order.order_date.strftime('%Y-%m-%d') }}
+                            </small>
+                            <div class="small text-success mt-1">
+                                购买商品:
+                                {% for item in order.items %}
+                                    {{ item.product_name }} ({{ item.quantity }}件)
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-warning send-order-btn"
+                                data-order-id="{{ order.order_id }}"
+                                data-order-summary="【订单咨询】订单号: #{{ order.order_id }} (￥{{ order.total_amount | round(2) }})，购买商品: {% for item in order.items %}{{ item.product_name }}{% if not loop.last %}/{% endif %}{% endfor %}">
+                            发送订单
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="alert alert-info">您与该商家暂无历史订单。</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.0/socket.io.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const convId = {{ conversation.id if conversation else 'null' }};
+        const currentUserId = {{ current_user.user_id if current_user else 'null' }};
+        const currentUsername = "{{ current_user.username if current_user else '' }}";
+
+        if (convId === null || currentUserId === null) {
+            console.error("会话或用户ID未加载。实时通信未启动。");
+            return;
+        }
+
+        const messageWindow = document.getElementById('message_window');
+        const inputField = document.getElementById('message_input');
+        const sendOrderButtons = document.querySelectorAll('.send-order-btn');
+
+        // 1. 滚动到底部 (显示最新消息)
+        messageWindow.scrollTop = messageWindow.scrollHeight;
+
+        // 2. 连接 SocketIO
+        const socket = io();
+
+        socket.on('connect', function() {
+            console.log('SocketIO Connected');
+            socket.emit('join', { 'conv_id': convId });
+        });
+
+        socket.on('status', function(data) {
+            console.log(data.msg);
+        });
+
+        // 通用的消息渲染函数
+        function appendMessage(data) {
+            if (data.conv_id !== convId) {
+                return;
+            }
+
+            const isSender = data.sender_id === currentUserId;
+            const msgContainer = document.createElement('div');
+            msgContainer.className = isSender ? 'd-flex justify-content-end mb-3' : 'd-flex justify-content-start mb-3';
+
+            const msgBubble = document.createElement('div');
+            msgBubble.className = isSender ? 'p-2 rounded bg-success text-white chat-bubble' : 'p-2 rounded bg-light border chat-bubble';
+            msgBubble.style.maxWidth = '70%';
+
+            if (!isSender) {
+                msgBubble.innerHTML += `<small class="d-block mb-1 text-muted fw-bold">${data.username}</small>`;
+            }
+
+            // 使用 data.content 确保 HTML 安全 (但由于我们发送的是纯文本，影响不大)
+            msgBubble.innerHTML += data.content;
+            msgBubble.innerHTML += `<small class="d-block text-end opacity-75 mt-1" style="font-size: 0.75rem;">${data.timestamp}</small>`;
+
+            msgContainer.appendChild(msgBubble);
+            messageWindow.appendChild(msgContainer);
+            messageWindow.scrollTop = messageWindow.scrollHeight;
+        }
+
+        // 3. 接收新消息
+        socket.on('new_message', appendMessage);
+
+        // 4. 发送普通消息
+        document.getElementById('send_message_form').onsubmit = function(e) {
+            e.preventDefault();
+            const content = inputField.value.trim();
+
+            if (content) {
+                socket.emit('send_message', {
+                    'conv_id': convId,
+                    'content': content
+                });
+                inputField.value = '';
+                inputField.focus();
+            }
+        };
+
+        // 5. 订单发送功能 (新增)
+        sendOrderButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const orderSummary = this.getAttribute('data-order-summary');
+
+                // 将订单信息发送到 SocketIO
+                socket.emit('send_message', {
+                    'conv_id': convId,
+                    'content': orderSummary // 发送结构化文本
+                });
+
+                // 关闭模态框 (需要使用 Bootstrap 5 JS)
+                const modalElement = document.getElementById('orderHistoryModal');
+                const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
+                modal.hide();
+
+                // 可选：清空输入框内容 (如果需要)
+                inputField.value = '';
+                inputField.focus();
+            });
+        });
+
+    });
+</script>
+{% endblock %}

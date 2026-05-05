@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-4">
+        <div class="card shadow mt-5">
+            <div class="card-header bg-success text-white text-center">
+                <h5>欢迎回到智慧助农平台</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('login') }}">
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">密码</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success">登录</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                <small>还没有账号? <a href="{{ url_for('register') }}">免费注册</a></small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

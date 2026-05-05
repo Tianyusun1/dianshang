@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>优选商城</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .navbar { background-color: #1f4f8f; }
+        .btn-primary { background-color: #2b6cb0; border-color: #2b6cb0; }
+        .btn-primary:hover { background-color: #1a4d80; }
+        .card { border: none; box-shadow: 0 2px 5px rgba(0,0,0,0.08); }
+
+        .assistant-fab {
+            position: fixed; right: 20px; bottom: 20px; z-index: 1050;
+            border-radius: 999px; padding: 10px 16px;
+        }
+        .assistant-panel {
+            position: fixed; right: 20px; bottom: 78px; width: 360px; max-width: calc(100vw - 30px);
+            background: #fff; border: 1px solid #ddd; border-radius: 12px;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.2); z-index: 1050; display: none;
+        }
+        .assistant-body { max-height: 380px; overflow-y: auto; padding: 12px; font-size: 14px; }
+        .assistant-item { margin-bottom: 10px; }
+        .assistant-user { color: #1f4f8f; font-weight: 600; }
+        .assistant-bot { color: #1b4332; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">🛍️ 优选商城</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('index') }}">商品广场</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{{ url_for('community') }}">社区</a></li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link me-2" href="{{ url_for('view_cart') }}">🛒 购物车</a></li>
+                    <li class="nav-item"><a class="nav-link me-2" href="{{ url_for('chat_list') }}">💬 消息</a></li>
+                    {% if current_user %}
+                        <li class="nav-item"><a class="nav-link active" href="{{ url_for('profile') }}">👤 {{ current_user.username }}</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('logout') }}">退出</a></li>
+                    {% else %}
+                        <li class="nav-item"><a class="nav-link" href="{{ url_for('login') }}">登录</a></li>
+                        <li class="nav-item"><a class="btn btn-light text-primary btn-sm ms-2" href="{{ url_for('register') }}">注册</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container" style="margin-top: 80px;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    {% set alert_class = 'alert-danger' if category == 'error' else 'alert-success' %}
+                    <div class="alert {{ alert_class }} alert-dismissible fade show shadow-sm" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <button id="assistantFab" class="btn btn-primary assistant-fab">🤖 智能客服</button>
+    <div id="assistantPanel" class="assistant-panel">
+        <div class="p-2 border-bottom d-flex justify-content-between align-items-center">
+            <strong>商城智能客服</strong>
+            <button id="assistantClose" class="btn btn-sm btn-outline-secondary">关闭</button>
+        </div>
+        <div id="assistantBody" class="assistant-body">
+            <div class="assistant-item assistant-bot">您好～告诉我你想买什么，我会推荐商城在售商品并附详情链接。</div>
+        </div>
+        <div class="p-2 border-top">
+            <div class="input-group">
+                <input id="assistantInput" type="text" class="form-control" placeholder="例如：推荐100元以内的牛肉">
+                <button id="assistantSend" class="btn btn-primary">发送</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const panel = document.getElementById('assistantPanel');
+        const body = document.getElementById('assistantBody');
+        const input = document.getElementById('assistantInput');
+
+        document.getElementById('assistantFab').onclick = () => {
+            panel.style.display = panel.style.display === 'none' || panel.style.display === '' ? 'block' : 'none';
+        };
+        document.getElementById('assistantClose').onclick = () => panel.style.display = 'none';
+
+        function appendMsg(cls, html) {
+            const div = document.createElement('div');
+            div.className = 'assistant-item ' + cls;
+            div.innerHTML = html;
+            body.appendChild(div);
+            body.scrollTop = body.scrollHeight;
+        }
+
+        async function sendAssistantQuestion() {
+            const q = input.value.trim();
+            if (!q) return;
+            appendMsg('assistant-user', '我：' + q);
+            input.value = '';
+
+            try {
+                const resp = await fetch('/api/assistant/mall_chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({question: q})
+                });
+                const data = await resp.json();
+                if (!data.ok) {
+                    appendMsg('assistant-bot', '客服：' + (data.message || '请求失败'));
+                    return;
+                }
+
+                let html = '客服：' + (data.answer || '暂无回复');
+                if (data.recommendations && data.recommendations.length) {
+                    html += '<hr><div><strong>推荐商品：</strong></div><ul>';
+                    data.recommendations.forEach(item => {
+                        html += `<li><a href="${item.url}" target="_blank">${item.name}</a>（¥${item.price}）</li>`;
+                    });
+                    html += '</ul>';
+                }
+                appendMsg('assistant-bot', html);
+            } catch (e) {
+                appendMsg('assistant-bot', '客服：网络错误，请稍后重试。');
+            }
+        }
+
+        document.getElementById('assistantSend').onclick = sendAssistantQuestion;
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') sendAssistantQuestion();
+        });
+    </script>
+</body>
+</html>

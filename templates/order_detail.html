@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <h3 class="fw-bold mb-4 text-success">📋 订单详情 #{{ order.order_id }}</h3>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                <span>订单状态: <span class="badge 
+                    {% if order.status == 1 %}bg-danger
+                    {% elif order.status == 2 %}bg-warning text-dark
+                    {% elif order.status == 3 %}bg-primary
+                    {% elif order.status == 4 %}bg-success
+                    {% elif order.status == 6 %}bg-danger
+                    {% else %}bg-secondary{% endif %}">
+                    {{ status_map[order.status] }}
+                </span></span>
+                <span>下单时间: {{ order.order_date.strftime('%Y-%m-%d %H:%M') }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold text-muted">收货信息</h6>
+                        <p class="mb-1">收货人: {{ order.receiver_name }}</p>
+                        <p class="mb-1">电话: {{ order.receiver_phone }}</p>
+                        <p class="mb-0">地址: {{ order.address }}</p>
+
+                        {% if order.tracking_number %}
+                        <p class="mt-2 mb-0 text-success fw-bold">发货单号: {{ order.tracking_number }}</p>
+                        {% endif %}
+
+                        {% if order.after_sales_reason %}
+                        <p class="mt-2 mb-0 text-danger fw-bold">售后原因: {{ order.after_sales_reason }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <h6 class="fw-bold text-muted">费用明细</h6>
+                        {% set goods_total = order.total_amount - order.shipping_cost %}
+                        <p class="mb-1">商品总额: ￥{{ goods_total|round(2) }}</p>
+                        <p class="mb-1 text-success">运费: + ￥{{ order.shipping_cost|round(2) }}</p>
+                        <h4 class="fw-bold text-danger mt-2">订单总额: ￥{{ order.total_amount|round(2) }}</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-light text-end">
+                {% if order.status == 3 %}
+                <form method="POST" action="{{ url_for('confirm_receipt', order_id=order.order_id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-primary fw-bold"
+                            onclick="return confirm('确认收货订单 #{{ order.order_id }} 吗？')">
+                        确认收货
+                    </button>
+                </form>
+                {% elif order.status == 4 %}
+                <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#afterSalesModal">
+                    申请售后
+                </button>
+
+                {% if not has_reviewed %}
+                <button type="button" class="btn btn-warning ms-1 fw-bold" data-bs-toggle="modal" data-bs-target="#reviewModal">
+                    ✨ 写评价
+                </button>
+                {% else %}
+                <button type="button" class="btn btn-outline-warning ms-1" disabled>
+                    已评价
+                </button>
+                {% endif %}
+                {% endif %}
+
+                {% if order.status == 1 or order.status == 2 %}
+                <a href="{{ url_for('edit_order_address', order_id=order.order_id) }}" class="btn btn-outline-secondary ms-1">
+                    修改收货地址
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light fw-bold">订单商品详情</div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-borderless">
+                        <tr>
+                            <th style="width: 50%;">商品名称 / 规格</th>
+                            <th style="width: 15%;">单价</th>
+                            <th style="width: 15%;">数量</th>
+                            <th style="width: 20%;">小计</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order.items %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('product_detail', product_id=item.product_id) }}" class="text-dark text-decoration-none">
+                                    {{ item.product_name }}
+                                    <div class="small text-success fw-bold">规格: {{ item.sku.spec_name }}</div>
+                                    <div class="small text-muted">农户ID: {{ item.farmer_id }}</div>
+                                </a>
+                            </td>
+                            <td>￥{{ item.price }}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td><span class="text-danger fw-bold">￥{{ (item.price * item.quantity)|round(2) }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <a href="{{ url_for('orders') }}" class="btn btn-outline-secondary">返回我的订单</a>
+    </div>
+</div>
+
+<div class="modal fade" id="afterSalesModal" tabindex="-1" aria-labelledby="afterSalesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('apply_for_after_sales', order_id=order.order_id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="afterSalesModalLabel">申请售后服务</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>您正在对订单 <strong>#{{ order.order_id }}</strong> 申请售后，请填写具体原因。</p>
+                    <div class="mb-3">
+                        <label for="after_sales_reason" class="form-label">售后原因:</label>
+                        <textarea class="form-control" id="after_sales_reason" name="after_sales_reason" rows="4" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-danger">提交售后申请</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('submit_review', order_id=order.order_id) }}">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title" id="reviewModalLabel">对订单 #{{ order.order_id }} 进行评价</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>您的评价将用于改善农产品的质量和体验。</p>
+                    <div class="mb-3">
+                        <label for="rating" class="form-label fw-bold">星级评分 (1-5星)</label>
+                        <select name="rating" id="rating" class="form-select" required>
+                            <option value="5">⭐⭐⭐⭐⭐ 5星 (非常好)</option>
+                            <option value="4">⭐⭐⭐⭐ 4星 (好)</option>
+                            <option value="3">⭐⭐⭐ 3星 (一般)</option>
+                            <option value="2">⭐⭐ 2星 (差)</option>
+                            <option value="1">⭐ 1星 (非常差)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="content" class="form-label fw-bold">评价内容 (可选)</label>
+                        <textarea class="form-control" id="content" name="content" rows="3" placeholder="写下您的宝贵意见..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-warning fw-bold">提交评价</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

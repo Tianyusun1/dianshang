@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">✍️ 发布新话题</h5>
+            </div>
+            <div class="card-body">
+                <!-- 关键修改：添加 enctype="multipart/form-data" 属性以支持文件上传 -->
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">帖子标题</label>
+                        <input type="text" name="title" class="form-control" placeholder="请输入标题" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">内容详情</label>
+                        <textarea name="content" class="form-control" rows="6" placeholder="分享您的乡村生活..." required></textarea>
+                    </div>
+
+                    <!-- 新增：图片上传字段 -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">帖子配图 (可选)</label>
+                        <div class="input-group">
+                            <input type="file" name="image_file" class="form-control" accept="image/*">
+                        </div>
+                        <div class="form-text text-muted">
+                            <small>上传图片将使您的帖子更吸引人。支持 jpg, png, gif 格式。</small>
+                        </div>
+                    </div>
+
+                    {% if my_products %}
+                    <div class="mb-4 p-3 bg-light rounded border">
+                        <label class="form-label fw-bold text-success">🍅 关联我的农产品 (可选)</label>
+                        <select name="product_id" class="form-select">
+                            <option value="none">-- 不关联任何商品 --</option>
+                            {% for product in my_products %}
+
+                                {% set min_price = 0 %}
+                                {% if product.skus %}
+                                    {% set min_price = product.skus | map(attribute='price') | min %}
+                                {% endif %}
+
+                                <option value="{{ product.product_id }}">
+                                    {{ product.name }} (￥{{ min_price | round(2) }} 起)
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-muted">
+                            选择后，帖子下方会显示该商品的购买卡片，方便买家直接下单。
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <a href="{{ url_for('community') }}" class="btn btn-outline-secondary">取消</a>
+                        <button type="submit" class="btn btn-success px-4">🚀 立即发布</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
