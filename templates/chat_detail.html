@@ -14,7 +14,7 @@
                 {% if message.sender_id == current_user.user_id %}
                 <div class="d-flex justify-content-end mb-3">
                     <div class="p-2 rounded bg-success text-white chat-bubble" style="max-width: 70%;">
-                        {{ message.content | safe }}
+                        {{ message.content | replace('推荐商品：', '其他类似好物：') | safe }}
                         <small class="d-block text-end opacity-75 mt-1" style="font-size: 0.75rem;">{{ message.timestamp.strftime('%H:%M') }}</small>
                     </div>
                 </div>
@@ -22,7 +22,7 @@
                 <div class="d-flex justify-content-start mb-3">
                     <div class="p-2 rounded bg-light border chat-bubble" style="max-width: 70%;">
                         <small class="d-block mb-1 text-muted fw-bold">{{ message.sender.username }}</small>
-                        {{ message.content | safe }}
+                        {{ message.content | replace('推荐商品：', '其他类似好物：') | safe }}
                         <small class="d-block text-end opacity-75 mt-1" style="font-size: 0.75rem;">{{ message.timestamp.strftime('%H:%M') }}</small>
                     </div>
                 </div>
@@ -32,11 +32,12 @@
 
         <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="mb-0 text-muted">发送新消息:</h6>
-            {% if historical_orders %}
+
+            <!-- 修改点：去掉了外层的 if 判断，让按钮永远显示。如果没有订单则显示 (0个) -->
             <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#orderHistoryModal">
-                📋 历史订单 ({% if historical_orders %}{{ historical_orders | length }}{% else %}0{% endif %}个)
+                📋 历史订单 ({{ historical_orders|length if historical_orders else 0 }}个)
             </button>
-            {% endif %}
+
         </div>
 
         <form id="send_message_form" class="d-flex shadow-sm">
@@ -71,16 +72,24 @@
                                 {% endfor %}
                             </div>
                         </div>
-                        <button class="btn btn-sm btn-warning send-order-btn"
-                                data-order-id="{{ order.order_id }}"
-                                data-order-summary="【订单咨询】订单号: #{{ order.order_id }} (￥{{ order.total_amount | round(2) }})，购买商品: {% for item in order.items %}{{ item.product_name }}{% if not loop.last %}/{% endif %}{% endfor %}">
-                            发送订单
-                        </button>
+
+                        <!-- 快捷操作按钮组 -->
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-primary quick-send-btn"
+                                    data-msg="【订单咨询】订单号: #{{ order.order_id }} (￥{{ order.total_amount | round(2) }})，购买商品: {% for item in order.items %}{{ item.product_name }}{% if not loop.last %}/{% endif %}{% endfor %}">
+                                发送订单
+                            </button>
+                            <button class="btn btn-sm btn-danger quick-send-btn"
+                                    data-msg="订单#{{ order.order_id }} 我要申请售后">
+                                一键售后
+                            </button>
+                        </div>
+
                     </li>
                     {% endfor %}
                 </ul>
                 {% else %}
-                <div class="alert alert-info">您与该商家暂无历史订单。</div>
+                <div class="alert alert-info">您与该商家暂无历史订单。如果您已购买，请确认网络状态或刷新页面。</div>
                 {% endif %}
             </div>
         </div>
@@ -103,7 +112,9 @@
 
         const messageWindow = document.getElementById('message_window');
         const inputField = document.getElementById('message_input');
-        const sendOrderButtons = document.querySelectorAll('.send-order-btn');
+
+        // 监听所有带有 quick-send-btn 类的快捷按钮
+        const quickSendButtons = document.querySelectorAll('.quick-send-btn');
 
         // 1. 滚动到底部 (显示最新消息)
         messageWindow.scrollTop = messageWindow.scrollHeight;
@@ -138,8 +149,9 @@
                 msgBubble.innerHTML += `<small class="d-block mb-1 text-muted fw-bold">${data.username}</small>`;
             }
 
-            // 使用 data.content 确保 HTML 安全 (但由于我们发送的是纯文本，影响不大)
-            msgBubble.innerHTML += data.content;
+            let processedContent = data.content.replace(/推荐商品：/g, '其他类似好物：');
+
+            msgBubble.innerHTML += processedContent;
             msgBubble.innerHTML += `<small class="d-block text-end opacity-75 mt-1" style="font-size: 0.75rem;">${data.timestamp}</small>`;
 
             msgContainer.appendChild(msgBubble);
@@ -165,23 +177,20 @@
             }
         };
 
-        // 5. 订单发送功能 (新增)
-        sendOrderButtons.forEach(button => {
+        // 5. 快捷发送功能 (同时兼容普通订单咨询和一键售后)
+        quickSendButtons.forEach(button => {
             button.addEventListener('click', function() {
-                const orderSummary = this.getAttribute('data-order-summary');
+                const messageText = this.getAttribute('data-msg');
 
-                // 将订单信息发送到 SocketIO
                 socket.emit('send_message', {
                     'conv_id': convId,
-                    'content': orderSummary // 发送结构化文本
+                    'content': messageText
                 });
 
-                // 关闭模态框 (需要使用 Bootstrap 5 JS)
                 const modalElement = document.getElementById('orderHistoryModal');
                 const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement);
                 modal.hide();
 
-                // 可选：清空输入框内容 (如果需要)
                 inputField.value = '';
                 inputField.focus();
             });

@@ -1908,14 +1908,13 @@ def chat_detail(conv_id):
         joinedload(Order.items).joinedload(OrderItem.sku).joinedload(ProductSKU.product)
     ).order_by(Order.order_date.desc()).all()
 
-    # 注意: chat_detail.html 模板使用的变量名是 history_orders，这里保持一致
+   # 注意把传给前端的变量名改成 historical_orders
     return render_template('chat_detail.html',
                            conversation=conversation,
                            messages=messages,
                            other_user=other_user,
                            current_user=current_user,
-                           history_orders=historical_orders)  # <-- 传递历史订单
-
+                           historical_orders=historical_orders)  # <-- 改这里！
 
 @app.route('/start_chat/<int:target_user_id>', methods=['POST'])
 def start_chat(target_user_id):
@@ -2023,6 +2022,17 @@ def handle_send_message(data):
             print(f"  错误信息: {e}")
             print(f"=============================================\n")
             db.session.rollback()
+
+# 在 app.py 中添加这个函数
+@app.context_processor
+def inject_recent_orders():
+    if 'user_id' in session:
+        from models import Order
+        # 自动获取当前用户最近的3笔有效订单
+        recent_orders = Order.query.filter_by(user_id=session['user_id'])\
+            .order_by(Order.order_date.desc()).limit(3).all()
+        return dict(recent_orders=recent_orders)
+    return dict(recent_orders=[])
 
 
 if __name__ == '__main__':

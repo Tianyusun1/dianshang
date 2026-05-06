@@ -98,6 +98,9 @@ class ProductSKU(db.Model):
     price = db.Column(db.Numeric(10, 2), nullable=False)  # SKU 价格
     stock = db.Column(db.Integer, default=0)  # SKU 库存
 
+# 🔥 [修复核心点] 创建别名，完美兼容我们在智能客服模块中写的 from models import SKU
+SKU = ProductSKU
+
 
 class CommunityPost(db.Model):
     """社区帖子表"""
